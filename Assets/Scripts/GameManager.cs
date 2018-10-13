@@ -13,9 +13,13 @@ public class GameManager : MonoBehaviour
 		RIGHT
 	}
 
+	public readonly int MATCH = 3;
+
 	public KeyCode mouseButton = KeyCode.Mouse0;
 
+	//////////////////////////////////////////////////////////////////////////
 	//Public variables
+	//////////////////////////////////////////////////////////////////////////
 	[Header("Board"), SerializeField]
 	int xTiles;
 	[SerializeField]
@@ -26,6 +30,9 @@ public class GameManager : MonoBehaviour
 	[SerializeField]
 	Vector2 startLocation = Vector2.zero;
 
+	//////////////////////////////////////////////////////////////////////////
+	//Tile Properties
+	//////////////////////////////////////////////////////////////////////////
 	[Header("Tiles"), SerializeField]
 	GameObject tilePrefab;
 	[SerializeField]
@@ -33,11 +40,15 @@ public class GameManager : MonoBehaviour
 	[SerializeField]
 	Vector2 tileSpacing;
 
-
+	//////////////////////////////////////////////////////////////////////////
+	//Color Properties
+	//////////////////////////////////////////////////////////////////////////
 	[Header("Colors")]
 	public Color[] colors;
 
+	//////////////////////////////////////////////////////////////////////////
 	//Private variables
+	//////////////////////////////////////////////////////////////////////////
 	protected Tile[] tiles;
 	protected TileLocation[] tileLocations;
 
@@ -100,18 +111,19 @@ public class GameManager : MonoBehaviour
 			int temp;
 			if (TryFindClosest(tiles, tileSize / 2f, Input.mousePosition, out temp))
 			{
-				//Destroy(tiles[temp].transform.gameObject);
-				//tiles[temp] = null;
-				StartCoroutine(CollapseColumnCoroutine(temp));
-
-
-				Tile moving = tiles[temp];
-				int newIndex = GetTopofColumnIndex(temp);
-				SetNewIndex(moving, newIndex);
-				moving.transform.position = tileLocations[newIndex].location;
-				moving.SetColor(UnityEngine.Random.Range(0, colors.Length));
-
-				//TODO Need to Move tile to the top (New Color, New Index)
+				CheckForMatches(temp);
+				////Destroy(tiles[temp].transform.gameObject);
+				////tiles[temp] = null;
+				//StartCoroutine(CollapseColumnCoroutine(temp));
+				//
+				//
+				//Tile moving = tiles[temp];
+				//int newIndex = GetTopofColumnIndex(temp);
+				//SetNewIndex(moving, newIndex);
+				//moving.transform.position = tileLocations[newIndex].location;
+				//moving.SetColor(UnityEngine.Random.Range(0, colors.Length));
+				//
+				////TODO Need to Move tile to the top (New Color, New Index)
 
 			}
 		}
@@ -194,42 +206,12 @@ public class GameManager : MonoBehaviour
 		int target = -1;
 		swapTile = null;
 
-		switch (direction)
+		if (CheckLegalDirection(direction, index))
 		{
-			case DIRECTION.UP:
-				if (index + xTiles >= tiles.Length)
-				{
-					return false;
-				}
-				target = index + xTiles;
-				break;
-
-			case DIRECTION.DOWN:
-				if (index - xTiles < 0)
-				{
-					return false;
-				}
-				target = index - xTiles;
-				break;
-
-			case DIRECTION.LEFT:
-				if (index == 0 || index % xTiles == 0)
-				{
-					return false;
-				}
-				target = index - 1;
-				break;
-
-			case DIRECTION.RIGHT:
-				if (index == (xTiles - 1) || (index - (xTiles - 1)) % xTiles  == 0)
-				{
-					return false;
-				}
-
-				target = index + 1;
-				break;
+			target = index + DirectionToInt(direction);
 		}
-
+		else
+			return false;
 
 		swapTile = tiles[target];
 		return true;
@@ -259,6 +241,86 @@ public class GameManager : MonoBehaviour
 		}
 	}
 
+	bool CheckLegalDirection(DIRECTION direction, int currentIndex)
+	{
+		switch (direction)
+		{
+			case DIRECTION.UP:
+				return !(currentIndex + xTiles >= tiles.Length);
+
+			case DIRECTION.DOWN:
+				return !(currentIndex - xTiles < 0) ;
+
+			case DIRECTION.LEFT:
+				return !(currentIndex == 0 || currentIndex % xTiles == 0) ;
+
+			case DIRECTION.RIGHT:
+				return !(currentIndex == (xTiles - 1) || (currentIndex - (xTiles - 1)) % xTiles == 0);
+		}
+
+		return false;
+	}
+
+	#region Check for Matches
+
+	void CheckForMatches(int checkIndex)
+	{
+		List<int> verticalIndexes = new List<int>() { checkIndex };
+		List<int> horizontalIndexes = new List<int>() { checkIndex };
+
+		DIRECTION dir;
+		for (int i = 0; i < 4; i++)
+		{
+			dir = (DIRECTION)i;
+			if (CheckLegalDirection(dir, checkIndex))
+			{
+				if(i <= 1)
+					CheckMatch(tiles[checkIndex], checkIndex + DirectionToInt(dir), dir, ref verticalIndexes);
+				else
+					CheckMatch(tiles[checkIndex], checkIndex + DirectionToInt(dir), dir, ref horizontalIndexes);
+			}
+		}
+
+		if((verticalIndexes.Count >= MATCH || horizontalIndexes.Count >= MATCH))
+			Debug.LogFormat("<color=green><b>At [{0}] HAS MATCH</b>; Vertical Matches: {2}; Horizontal Matches: {3}</color>",
+				checkIndex,null, verticalIndexes.Count, horizontalIndexes.Count);
+		else
+			Debug.LogFormat("<color=red>At [{0}] DOESNT HAVE MATCH; Vertical Matches: {2}; Horizontal Matches: {3}</color>",
+				checkIndex, null, verticalIndexes.Count, horizontalIndexes.Count);
+
+	}
+
+	private bool CheckMatch(Tile compareTo, int tileIndex, DIRECTION direction, ref List<int> indexes)
+	{
+		if(tiles[tileIndex] == compareTo)
+		{
+			indexes.Add(tileIndex);
+			if (CheckLegalDirection(direction, tileIndex))
+				return CheckMatch(tiles[tileIndex], tileIndex + DirectionToInt(direction), direction, ref indexes);
+		}
+
+		return false;
+	}
+
+	int DirectionToInt(DIRECTION direction)
+	{
+		switch (direction)
+		{
+			case DIRECTION.UP:
+				return xTiles;
+			case DIRECTION.DOWN:
+				return -xTiles;
+			case DIRECTION.LEFT:
+				return -1;
+			case DIRECTION.RIGHT:
+				return 1;
+		}
+
+		return 0;
+	}
+
+	#endregion //Check for Matches
+
 	#region Coordinate Converters
 
 	private int CoordinateToIndex(int x, int y)
@@ -280,8 +342,8 @@ public class GameManager : MonoBehaviour
 
 	private IEnumerator SwapTilePositionsCoroutine(Tile tile1, Tile tile2)
 	{
-		int tempTile1 = tile1.index;
-		int tempTile2 = tile2.index;
+		int tempIndex1 = tile1.index;
+		int tempIndex2 = tile2.index;
 
 		Vector2 tile1Pos = tileLocations[tile1.index].location;
 		Vector2 tile2Pos = tileLocations[tile2.index].location;
@@ -298,12 +360,11 @@ public class GameManager : MonoBehaviour
 			yield return null;
 		}
 
-		//FIXME This needs to be set in the Array too, not only the object
-		//tile1.SetIndex(tempTile2.index);
-		//tile2.SetIndex(tempTile1.index);
+		SetNewIndex(tile1, newIndex: tempIndex2);
+		SetNewIndex(tile2, newIndex: tempIndex1);
 
-		SetNewIndex(tile1, tempTile2);
-		SetNewIndex(tile2, tempTile1);
+		CheckForMatches(tempIndex1);
+		CheckForMatches(tempIndex2);
 	}
 
 	//FIXME Need a check for NullReferences on fall origin
