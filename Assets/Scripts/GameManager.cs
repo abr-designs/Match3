@@ -1,4 +1,4 @@
-﻿using System;
+﻿using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -52,11 +52,11 @@ public class GameManager : MonoBehaviour
 	protected Tile[] tiles;
 	protected TileLocation[] tileLocations;
 
-	int selectedTile;
+	private int selectedTile;
 
-	bool mouseDown;
-	Vector2 mouseDownPostion;
-	Vector2 mouseUpPosition;
+	private bool mouseDown;
+	private Vector2 mouseDownPostion;
+	private Vector2 mouseUpPosition;
 
 	private new Transform transform;
 
@@ -161,6 +161,9 @@ public class GameManager : MonoBehaviour
 
 	private void MouseDown()
 	{
+		if (isMoving)
+			return;
+
 		mouseDown = true;
 		mouseDownPostion = Input.mousePosition;
 
@@ -219,51 +222,9 @@ public class GameManager : MonoBehaviour
 
 	#endregion //Mouse Functions
 
-	private void SetNewIndex(Tile tile, int newIndex)
-	{
-		tiles[newIndex] = tile;
-		tile.SetIndex(newIndex);
-		//TODO I should also set the gameObject name
-		var coordinate = IndexToCoordinate(newIndex);
-		tile.name = string.Format("Tile [{0}, {1}]", coordinate.x, coordinate.y);
-	}
-
-	private int GetTopofColumnIndex(int currentIndex)
-	{
-		int temp = currentIndex;
-
-		while (true)
-		{
-			if (temp + xTiles >= tiles.Length)
-				return temp;
-
-			temp += xTiles;
-		}
-	}
-
-	bool CheckLegalDirection(DIRECTION direction, int currentIndex)
-	{
-		switch (direction)
-		{
-			case DIRECTION.UP:
-				return !(currentIndex + xTiles >= tiles.Length);
-
-			case DIRECTION.DOWN:
-				return !(currentIndex - xTiles < 0) ;
-
-			case DIRECTION.LEFT:
-				return !(currentIndex == 0 || currentIndex % xTiles == 0) ;
-
-			case DIRECTION.RIGHT:
-				return !(currentIndex == (xTiles - 1) || (currentIndex - (xTiles - 1)) % xTiles == 0);
-		}
-
-		return false;
-	}
-
 	#region Check for Matches
 
-	void CheckForMatches(int checkIndex)
+	List<int> CheckForMatches(int checkIndex)
 	{
 		List<int> verticalIndexes = new List<int>() { checkIndex };
 		List<int> horizontalIndexes = new List<int>() { checkIndex };
@@ -281,12 +242,29 @@ public class GameManager : MonoBehaviour
 			}
 		}
 
-		if((verticalIndexes.Count >= MATCH || horizontalIndexes.Count >= MATCH))
+		
+
+		if ((verticalIndexes.Count >= MATCH || horizontalIndexes.Count >= MATCH))
+		{
 			Debug.LogFormat("<color=green><b>At [{0}] HAS MATCH</b>; Vertical Matches: {2}; Horizontal Matches: {3}</color>",
-				checkIndex,null, verticalIndexes.Count, horizontalIndexes.Count);
+				  checkIndex, null, verticalIndexes.Count, horizontalIndexes.Count);
+
+			List<int> _out = new List<int>();
+			if (verticalIndexes.Count >= MATCH)
+				_out.AddRange(verticalIndexes);
+
+			if (horizontalIndexes.Count >= MATCH)
+				_out.AddRange(horizontalIndexes);
+
+			return _out;
+		}
 		else
+		{
 			Debug.LogFormat("<color=red>At [{0}] DOESNT HAVE MATCH; Vertical Matches: {2}; Horizontal Matches: {3}</color>",
 				checkIndex, null, verticalIndexes.Count, horizontalIndexes.Count);
+		}
+
+		return null;
 
 	}
 
@@ -321,7 +299,49 @@ public class GameManager : MonoBehaviour
 
 	#endregion //Check for Matches
 
-	#region Coordinate Converters
+	#region Coordinate Functions
+
+	private void SetNewIndex(Tile tile, int newIndex)
+	{
+		tiles[newIndex] = tile;
+		tile.SetIndex(newIndex);
+		//TODO I should also set the gameObject name
+		var coordinate = IndexToCoordinate(newIndex);
+		tile.name = string.Format("Tile [{0}, {1}]", coordinate.x, coordinate.y);
+	}
+
+	private int GetTopofColumnIndex(int currentIndex)
+	{
+		int temp = currentIndex;
+
+		while (true)
+		{
+			if (temp + xTiles >= tiles.Length)
+				return temp;
+
+			temp += xTiles;
+		}
+	}
+
+	bool CheckLegalDirection(DIRECTION direction, int currentIndex)
+	{
+		switch (direction)
+		{
+			case DIRECTION.UP:
+				return !(currentIndex + xTiles >= tiles.Length);
+
+			case DIRECTION.DOWN:
+				return !(currentIndex - xTiles < 0);
+
+			case DIRECTION.LEFT:
+				return !(currentIndex == 0 || currentIndex % xTiles == 0);
+
+			case DIRECTION.RIGHT:
+				return !(currentIndex == (xTiles - 1) || (currentIndex - (xTiles - 1)) % xTiles == 0);
+		}
+
+		return false;
+	}
 
 	private int CoordinateToIndex(int x, int y)
 	{
@@ -336,7 +356,12 @@ public class GameManager : MonoBehaviour
 		return new Vector2(x, y);
 	}
 
-	#endregion //Coordinate Converters
+	private int IndexToColumn(int index)
+	{
+		return (int)IndexToCoordinate(index).x;
+	}
+
+	#endregion //Coordinate Functions
 
 	#region Coroutines
 
@@ -363,75 +388,234 @@ public class GameManager : MonoBehaviour
 		SetNewIndex(tile1, newIndex: tempIndex2);
 		SetNewIndex(tile2, newIndex: tempIndex1);
 
-		CheckForMatches(tempIndex1);
-		CheckForMatches(tempIndex2);
-	}
+		var check1 = CheckForMatches(tempIndex1);
+		var check2 = CheckForMatches(tempIndex2);
 
-	//FIXME Need a check for NullReferences on fall origin
-	private IEnumerator CollapseColumnCoroutine(int index)
-	{
-		List<Tile> fallingTiles = null;
-		List<Vector2> fallLocations = null;
-		List<Vector2> currentLocations = null;
-		int temp = index;
-		temp += xTiles;
-
-		while (temp < tiles.Length)
-		{
-			if (fallingTiles == null)
-			{
-				fallingTiles = new List<Tile>();
-				fallLocations = new List<Vector2>();
-				currentLocations = new List<Vector2>();
-			}
-
-			currentLocations.Add(tileLocations[temp].location);
-			fallLocations.Add(tileLocations[temp - xTiles].location);
-			fallingTiles.Add(tiles[temp]);
-
-			temp += xTiles;
-		}
-
-		if (fallingTiles == null || fallingTiles.Count <= 0)
+		if (check1 == null && check2 == null)
 			yield break;
 
-		float _t = 0f;
-		while(_t < 1f)
-		{
-			for(int i = 0; i < fallingTiles.Count; i++)
-			{
-				fallingTiles[i].transform.position = Vector2.Lerp(currentLocations[i], fallLocations[i], _t);
+		List<int> indexes = new List<int>();
+		if (check1 != null) indexes.AddRange(check1);
+		if (check2 != null) indexes.AddRange(check2);
 
-			}
-
-			_t += Time.deltaTime * 2f;
-
-
-			yield return null;
-		}
-
-		for (int i = 0; i < fallingTiles.Count; i++)
-		{
-			SetNewIndex(fallingTiles[i], fallingTiles[i].index - xTiles);
-		}
+		StartCoroutine(FallCoroutine(indexes));
 	}
 
-	IEnumerator MovePositionCoroutine(Tile tile, Vector2 startPosition, Vector2 endPosition, Action onFinishedCallback)
+	bool isMoving = false;
+	private IEnumerator FallCoroutine(List<int> targetIndexes)
 	{
+		isMoving = true;
+		List<int>[] columns = new List<int>[xTiles];
+		List<MoveRequest> requests = new List<MoveRequest>();
+
+		//////////////////////////////////////////////////////////////////////
+		//////////////////////////////////////////////////////////////////////
+
+		//Find the amount and which tiles of each column need to be moved
+		for (int i = 0; i < targetIndexes.Count; i++)
+		{
+			int column = IndexToColumn(targetIndexes[i]);
+
+			if (columns[column] == null)
+				columns[column] = new List<int>();
+
+			columns[column].Add(targetIndexes[i]);
+		}
+
+		//////////////////////////////////////////////////////////////////////
+		//////////////////////////////////////////////////////////////////////\
+
+		for (int i = 0; i < columns.Length; i++)
+		{
+			if (columns[i] == null)
+				continue;
+
+			//Find column move min & Max
+			int minLimboIndex = columns[i].Min();
+			int maxLimboIndex = columns[i].Max();
+
+			//Find number of tiles above it after max of tiles
+			List<int> above = TilesAboveIndex(maxLimboIndex);
+
+			
+			//Request move tiles to new index location (offset of columns[column].Count * xTiles)
+			for(int j = 0; j < above.Count; j++)
+			{
+				requests.Add(new MoveRequest()
+				{
+					tile = tiles[above[j]],
+					targetIndex = tiles[above[j]].index - (columns[i].Count * xTiles)
+				});
+			}
+
+			//Request move limbo tiles to now vacant positions
+			for (int j = 0; j < columns[i].Count; j++)
+			{
+				tiles[columns[i][j]].transform.position = OffsetAboveColumn(column: i, offset: j + 1);
+				tiles[columns[i][j]].SetColor(Random.Range(0, colors.Length));
+
+				int columnTopIndex = (i + (xTiles * (yTiles - 1)));
+				int verticalOffset = ((columns[i].Count) * xTiles);
+				verticalOffset -= xTiles * (j + 1);
+
+				requests.Add(new MoveRequest()
+				{
+					tile = tiles[columns[i][j]],
+					targetIndex = columnTopIndex - verticalOffset
+				});
+			}
+		}
+
+		UnityEditor.EditorApplication.isPaused = true;
+		yield return null;
+
 		float _t = 0;
+		Debug.Log("Moving");
+		List<Vector2> startPositions = new List<Vector2>();
+		for (int i = 0; i < requests.Count; i++)
+		{
+			startPositions.Add(requests[i].tile.transform.position);
+		}
 
 		while (_t < 1f)
 		{
-			tile.transform.position = Vector2.Lerp(startPosition, endPosition, _t);
+			for(int i = 0; i < requests.Count; i++)
+			{
+				requests[i].tile.transform.position = Vector2.Lerp(
+					startPositions[i],
+					tileLocations[requests[i].targetIndex].location, _t);
+			}
 
-			_t += Time.deltaTime * 2f;
+			_t += Time.deltaTime;
 
 			yield return null;
 		}
 
-		if (onFinishedCallback != null)
-			onFinishedCallback();
+		Debug.Log("Setting");
+
+		//Swap tiles
+		for (int i = 0; i < requests.Count; i++)
+		{
+			requests[i].tile.transform.position = tileLocations[requests[i].targetIndex].location;
+			SetNewIndex(requests[i].tile, newIndex: requests[i].targetIndex);
+		}
+
+		Debug.Log("Done");
+		isMoving = false;
+
+		CheckFallingMatch(requests);
 	}
+
+	void CheckFallingMatch(List<MoveRequest> tiles)
+	{
+		List<int> indexes = new List<int>();
+
+		for(int i = 0; i < tiles.Count; i++)
+		{
+			var temp = CheckForMatches(tiles[i].targetIndex);
+
+			if (temp != null)
+				indexes.AddRange(temp);
+		}
+
+		if (indexes.Count > 0)
+			StartCoroutine(FallCoroutine(indexes));
+	}
+
+	class MoveRequest
+	{
+		public Tile tile;
+		public int targetIndex;
+
+	}
+
+	private List<int> TilesAboveIndex(int index)
+	{
+		List<int> tilesAbove = new List<int>();
+		while (true)
+		{
+			index += DirectionToInt(DIRECTION.UP);
+
+			if (index >= tiles.Length)
+				return tilesAbove;
+
+			tilesAbove.Add(index);
+		}
+	}
+
+	private Vector2 OffsetAboveColumn(int column, int offset)
+	{
+		//Debug.LogFormat("Index[{0}], Column: {1}, Max Tiles: {2}, Offset: {3}",(column + (xTiles * (yTiles - 1))), column, tiles.Length, (xTiles * (yTiles - 1)));
+		Vector2 topCoordinate = tileLocations[column + (xTiles * (yTiles - 1))].location;
+
+		return topCoordinate + new Vector2(0, tileSpacing.y * offset);
+	}
+
+	//FIXME Need a check for NullReferences on fall origin
+	//private IEnumerator CollapseColumnCoroutine(int index)
+	//{
+	//	List<Tile> fallingTiles = null;
+	//	List<Vector2> fallLocations = null;
+	//	List<Vector2> currentLocations = null;
+	//	int temp = index;
+	//	temp += xTiles;
+	//
+	//	while (temp < tiles.Length)
+	//	{
+	//		if (fallingTiles == null)
+	//		{
+	//			fallingTiles = new List<Tile>();
+	//			fallLocations = new List<Vector2>();
+	//			currentLocations = new List<Vector2>();
+	//		}
+	//
+	//		currentLocations.Add(tileLocations[temp].location);
+	//		fallLocations.Add(tileLocations[temp - xTiles].location);
+	//		fallingTiles.Add(tiles[temp]);
+	//
+	//		temp += xTiles;
+	//	}
+	//
+	//	if (fallingTiles == null || fallingTiles.Count <= 0)
+	//		yield break;
+	//
+	//	float _t = 0f;
+	//	while(_t < 1f)
+	//	{
+	//		for(int i = 0; i < fallingTiles.Count; i++)
+	//		{
+	//			fallingTiles[i].transform.position = Vector2.Lerp(currentLocations[i], fallLocations[i], _t);
+	//
+	//		}
+	//
+	//		_t += Time.deltaTime * 2f;
+	//
+	//
+	//		yield return null;
+	//	}
+	//
+	//	for (int i = 0; i < fallingTiles.Count; i++)
+	//	{
+	//		SetNewIndex(fallingTiles[i], fallingTiles[i].index - xTiles);
+	//	}
+	//}
+	//
+	//IEnumerator MovePositionCoroutine(Tile tile, Vector2 startPosition, Vector2 endPosition, Action onFinishedCallback)
+	//{
+	//	float _t = 0;
+	//
+	//	while (_t < 1f)
+	//	{
+	//		tile.transform.position = Vector2.Lerp(startPosition, endPosition, _t);
+	//
+	//		_t += Time.deltaTime * 2f;
+	//
+	//		yield return null;
+	//	}
+	//
+	//	if (onFinishedCallback != null)
+	//		onFinishedCallback();
+	//}
 
 	#endregion //Coroutines
 
