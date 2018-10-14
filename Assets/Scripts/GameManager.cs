@@ -398,7 +398,7 @@ public class GameManager : MonoBehaviour
 		if (check1 != null) indexes.AddRange(check1);
 		if (check2 != null) indexes.AddRange(check2);
 
-		StartCoroutine(FallCoroutine(indexes));
+		StartCoroutine(FallCoroutine(indexes.Distinct().ToList()));
 	}
 
 	bool isMoving = false;
@@ -466,8 +466,8 @@ public class GameManager : MonoBehaviour
 			}
 		}
 
-		UnityEditor.EditorApplication.isPaused = true;
-		yield return null;
+		//UnityEditor.EditorApplication.isPaused = true;
+		//yield return null;
 
 		float _t = 0;
 		Debug.Log("Moving");
@@ -503,6 +503,8 @@ public class GameManager : MonoBehaviour
 		Debug.Log("Done");
 		isMoving = false;
 
+		yield return null;
+
 		CheckFallingMatch(requests);
 	}
 
@@ -519,7 +521,10 @@ public class GameManager : MonoBehaviour
 		}
 
 		if (indexes.Count > 0)
-			StartCoroutine(FallCoroutine(indexes));
+		{
+			//UnityEditor.EditorApplication.isPaused = true;
+			StartCoroutine(FallCoroutine(indexes.Distinct().ToList()));
+		}
 	}
 
 	class MoveRequest
