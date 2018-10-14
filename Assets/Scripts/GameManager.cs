@@ -5,7 +5,7 @@ using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
-	public enum DIRECTION : int
+	private enum DIRECTION : int
 	{
 		UP = 0,
 		DOWN,
@@ -49,6 +49,8 @@ public class GameManager : MonoBehaviour
 	//////////////////////////////////////////////////////////////////////////
 	//Private variables
 	//////////////////////////////////////////////////////////////////////////
+	private bool coroutineActive = false;
+
 	protected Tile[] tiles;
 	protected TileLocation[] tileLocations;
 
@@ -161,7 +163,7 @@ public class GameManager : MonoBehaviour
 
 	private void MouseDown()
 	{
-		if (isMoving)
+		if (coroutineActive)
 			return;
 
 		mouseDown = true;
@@ -224,7 +226,7 @@ public class GameManager : MonoBehaviour
 
 	#region Check for Matches
 
-	List<int> CheckForMatches(int checkIndex)
+	private List<int> CheckForMatches(int checkIndex)
 	{
 		List<int> verticalIndexes = new List<int>() { checkIndex };
 		List<int> horizontalIndexes = new List<int>() { checkIndex };
@@ -242,8 +244,6 @@ public class GameManager : MonoBehaviour
 			}
 		}
 
-		
-
 		if ((verticalIndexes.Count >= MATCH || horizontalIndexes.Count >= MATCH))
 		{
 			Debug.LogFormat("<color=green><b>At [{0}] HAS MATCH</b>; Vertical Matches: {2}; Horizontal Matches: {3}</color>",
@@ -258,11 +258,11 @@ public class GameManager : MonoBehaviour
 
 			return _out;
 		}
-		else
-		{
-			Debug.LogFormat("<color=red>At [{0}] DOESNT HAVE MATCH; Vertical Matches: {2}; Horizontal Matches: {3}</color>",
-				checkIndex, null, verticalIndexes.Count, horizontalIndexes.Count);
-		}
+		//else
+		//{
+		//	Debug.LogFormat("<color=red>At [{0}] DOESNT HAVE MATCH; Vertical Matches: {2}; Horizontal Matches: {3}</color>",
+		//		checkIndex, null, verticalIndexes.Count, horizontalIndexes.Count);
+		//}
 
 		return null;
 
@@ -280,21 +280,25 @@ public class GameManager : MonoBehaviour
 		return false;
 	}
 
-	int DirectionToInt(DIRECTION direction)
+	
+
+	private void CheckFallingMatch(List<MoveRequest> tiles)
 	{
-		switch (direction)
+		List<int> indexes = new List<int>();
+
+		for (int i = 0; i < tiles.Count; i++)
 		{
-			case DIRECTION.UP:
-				return xTiles;
-			case DIRECTION.DOWN:
-				return -xTiles;
-			case DIRECTION.LEFT:
-				return -1;
-			case DIRECTION.RIGHT:
-				return 1;
+			var temp = CheckForMatches(tiles[i].targetIndex);
+
+			if (temp != null)
+				indexes.AddRange(temp);
 		}
 
-		return 0;
+		if (indexes.Count > 0)
+		{
+			//UnityEditor.EditorApplication.isPaused = true;
+			StartCoroutine(FallCoroutine(indexes.Distinct().ToList()));
+		}
 	}
 
 	#endregion //Check for Matches
@@ -361,12 +365,53 @@ public class GameManager : MonoBehaviour
 		return (int)IndexToCoordinate(index).x;
 	}
 
+	private List<int> TilesAboveIndex(int index)
+	{
+		List<int> tilesAbove = new List<int>();
+		while (true)
+		{
+			index += DirectionToInt(DIRECTION.UP);
+
+			if (index >= tiles.Length)
+				return tilesAbove;
+
+			tilesAbove.Add(index);
+		}
+	}
+
+	private Vector2 OffsetAboveColumn(int column, int offset)
+	{
+		//Debug.LogFormat("Index[{0}], Column: {1}, Max Tiles: {2}, Offset: {3}",(column + (xTiles * (yTiles - 1))), column, tiles.Length, (xTiles * (yTiles - 1)));
+		Vector2 topCoordinate = tileLocations[column + (xTiles * (yTiles - 1))].location;
+
+		return topCoordinate + new Vector2(0, tileSpacing.y * offset);
+	}
+
+	private int DirectionToInt(DIRECTION direction)
+	{
+		switch (direction)
+		{
+			case DIRECTION.UP:
+				return xTiles;
+			case DIRECTION.DOWN:
+				return -xTiles;
+			case DIRECTION.LEFT:
+				return -1;
+			case DIRECTION.RIGHT:
+				return 1;
+		}
+
+		return 0;
+	}
+
 	#endregion //Coordinate Functions
 
 	#region Coroutines
 
 	private IEnumerator SwapTilePositionsCoroutine(Tile tile1, Tile tile2)
 	{
+		coroutineActive = true;
+
 		int tempIndex1 = tile1.index;
 		int tempIndex2 = tile2.index;
 
@@ -380,7 +425,7 @@ public class GameManager : MonoBehaviour
 			tile1.transform.position = Vector2.Lerp(tile1Pos, tile2Pos, _t);
 			tile2.transform.position = Vector2.Lerp(tile2Pos, tile1Pos, _t);
 
-			_t += Time.deltaTime * 2f;
+			_t += Time.deltaTime;
 
 			yield return null;
 		}
@@ -391,20 +436,53 @@ public class GameManager : MonoBehaviour
 		var check1 = CheckForMatches(tempIndex1);
 		var check2 = CheckForMatches(tempIndex2);
 
+		//We dont want to check for matches if we have an override.
 		if (check1 == null && check2 == null)
+		{
+			StartCoroutine(ForceSwapTilePositionsCoroutine(tiles[tempIndex2], tiles[tempIndex1]));
 			yield break;
+		}
 
 		List<int> indexes = new List<int>();
 		if (check1 != null) indexes.AddRange(check1);
 		if (check2 != null) indexes.AddRange(check2);
 
 		StartCoroutine(FallCoroutine(indexes.Distinct().ToList()));
+
 	}
 
-	bool isMoving = false;
+	private IEnumerator ForceSwapTilePositionsCoroutine(Tile tile1, Tile tile2)
+	{
+		coroutineActive = true;
+
+		int tempIndex1 = tile1.index;
+		int tempIndex2 = tile2.index;
+
+		Vector2 tile1Pos = tileLocations[tile1.index].location;
+		Vector2 tile2Pos = tileLocations[tile2.index].location;
+
+		float _t = 0;
+
+		while (_t < 1f)
+		{
+			tile1.transform.position = Vector2.Lerp(tile1Pos, tile2Pos, _t);
+			tile2.transform.position = Vector2.Lerp(tile2Pos, tile1Pos, _t);
+
+			_t += Time.deltaTime;
+
+			yield return null;
+		}
+
+		SetNewIndex(tile1, newIndex: tempIndex2);
+		SetNewIndex(tile2, newIndex: tempIndex1);
+
+		coroutineActive = false;
+
+	}
+
 	private IEnumerator FallCoroutine(List<int> targetIndexes)
 	{
-		isMoving = true;
+		coroutineActive = true;
 		List<int>[] columns = new List<int>[xTiles];
 		List<MoveRequest> requests = new List<MoveRequest>();
 
@@ -504,138 +582,12 @@ public class GameManager : MonoBehaviour
 		}
 
 		Debug.Log("Done");
-		isMoving = false;
+		coroutineActive = false;
 
 		yield return null;
 
 		CheckFallingMatch(requests);
 	}
-
-	void CheckFallingMatch(List<MoveRequest> tiles)
-	{
-		List<int> indexes = new List<int>();
-
-		for(int i = 0; i < tiles.Count; i++)
-		{
-			var temp = CheckForMatches(tiles[i].targetIndex);
-
-			if (temp != null)
-				indexes.AddRange(temp);
-		}
-
-		if (indexes.Count > 0)
-		{
-			//UnityEditor.EditorApplication.isPaused = true;
-			StartCoroutine(FallCoroutine(indexes.Distinct().ToList()));
-		}
-	}
-
-	private static int LessThanCount(int value, List<int> values)
-	{
-		int count = 0;
-		for(int i = 0; i < values.Count; i++)
-		{
-			if (values[i] < value)
-				count++;
-		}
-
-		return count;
-	}
-
-	class MoveRequest
-	{
-		public Tile tile;
-		public int targetIndex;
-
-	}
-
-	private List<int> TilesAboveIndex(int index)
-	{
-		List<int> tilesAbove = new List<int>();
-		while (true)
-		{
-			index += DirectionToInt(DIRECTION.UP);
-
-			if (index >= tiles.Length)
-				return tilesAbove;
-
-			tilesAbove.Add(index);
-		}
-	}
-
-	private Vector2 OffsetAboveColumn(int column, int offset)
-	{
-		//Debug.LogFormat("Index[{0}], Column: {1}, Max Tiles: {2}, Offset: {3}",(column + (xTiles * (yTiles - 1))), column, tiles.Length, (xTiles * (yTiles - 1)));
-		Vector2 topCoordinate = tileLocations[column + (xTiles * (yTiles - 1))].location;
-
-		return topCoordinate + new Vector2(0, tileSpacing.y * offset);
-	}
-
-	//FIXME Need a check for NullReferences on fall origin
-	//private IEnumerator CollapseColumnCoroutine(int index)
-	//{
-	//	List<Tile> fallingTiles = null;
-	//	List<Vector2> fallLocations = null;
-	//	List<Vector2> currentLocations = null;
-	//	int temp = index;
-	//	temp += xTiles;
-	//
-	//	while (temp < tiles.Length)
-	//	{
-	//		if (fallingTiles == null)
-	//		{
-	//			fallingTiles = new List<Tile>();
-	//			fallLocations = new List<Vector2>();
-	//			currentLocations = new List<Vector2>();
-	//		}
-	//
-	//		currentLocations.Add(tileLocations[temp].location);
-	//		fallLocations.Add(tileLocations[temp - xTiles].location);
-	//		fallingTiles.Add(tiles[temp]);
-	//
-	//		temp += xTiles;
-	//	}
-	//
-	//	if (fallingTiles == null || fallingTiles.Count <= 0)
-	//		yield break;
-	//
-	//	float _t = 0f;
-	//	while(_t < 1f)
-	//	{
-	//		for(int i = 0; i < fallingTiles.Count; i++)
-	//		{
-	//			fallingTiles[i].transform.position = Vector2.Lerp(currentLocations[i], fallLocations[i], _t);
-	//
-	//		}
-	//
-	//		_t += Time.deltaTime * 2f;
-	//
-	//
-	//		yield return null;
-	//	}
-	//
-	//	for (int i = 0; i < fallingTiles.Count; i++)
-	//	{
-	//		SetNewIndex(fallingTiles[i], fallingTiles[i].index - xTiles);
-	//	}
-	//}
-	//
-	//IEnumerator MovePositionCoroutine(Tile tile, Vector2 startPosition, Vector2 endPosition, Action onFinishedCallback)
-	//{
-	//	float _t = 0;
-	//
-	//	while (_t < 1f)
-	//	{
-	//		tile.transform.position = Vector2.Lerp(startPosition, endPosition, _t);
-	//
-	//		_t += Time.deltaTime * 2f;
-	//
-	//		yield return null;
-	//	}
-	//
-	//	if (onFinishedCallback != null)
-	//		onFinishedCallback();
-	//}
 
 	#endregion //Coroutines
 
@@ -708,9 +660,29 @@ public class GameManager : MonoBehaviour
 		return outDirection;
 	}
 
+	private static int LessThanCount(int value, List<int> values)
+	{
+		int count = 0;
+		for (int i = 0; i < values.Count; i++)
+		{
+			if (values[i] < value)
+				count++;
+		}
+
+		return count;
+	}
+
+	
+
 	#endregion //Static Functions
 
 	#region Extra Classes
+
+	private class MoveRequest
+	{
+		public Tile tile;
+		public int targetIndex;
+	}
 
 	public struct TileLocation
 	{
