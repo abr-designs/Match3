@@ -432,19 +432,22 @@ public class GameManager : MonoBehaviour
 
 			//Find column move min & Max
 			int minLimboIndex = columns[i].Min();
-			int maxLimboIndex = columns[i].Max();
+			//int maxLimboIndex = columns[i].Max();
 
 			//Find number of tiles above it after max of tiles
-			List<int> above = TilesAboveIndex(maxLimboIndex);
+			List<int> above = TilesAboveIndex(minLimboIndex);
 
 			
 			//Request move tiles to new index location (offset of columns[column].Count * xTiles)
 			for(int j = 0; j < above.Count; j++)
 			{
+				int aboveIndex = tiles[above[j]].index;
 				requests.Add(new MoveRequest()
 				{
+					//FIXME The amount of tiles moving needs to be the amount below, not just count
 					tile = tiles[above[j]],
-					targetIndex = tiles[above[j]].index - (columns[i].Count * xTiles)
+					//targetIndex = tiles[above[j]].index - (columns[i].Count * xTiles)
+					targetIndex = aboveIndex - (LessThanCount(aboveIndex, columns[i]) * xTiles)
 				});
 			}
 
@@ -525,6 +528,18 @@ public class GameManager : MonoBehaviour
 			//UnityEditor.EditorApplication.isPaused = true;
 			StartCoroutine(FallCoroutine(indexes.Distinct().ToList()));
 		}
+	}
+
+	private static int LessThanCount(int value, List<int> values)
+	{
+		int count = 0;
+		for(int i = 0; i < values.Count; i++)
+		{
+			if (values[i] < value)
+				count++;
+		}
+
+		return count;
 	}
 
 	class MoveRequest
