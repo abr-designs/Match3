@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using TMPro;
 
 public class GameManager : MonoBehaviour
 {
@@ -13,10 +14,19 @@ public class GameManager : MonoBehaviour
 		RIGHT
 	}
 
+	public enum POWERUP : int
+	{
+		NONE = 0,
+		LINE,
+		CROSS,
+		COLOR
+	}
+
 	//////////////////////////////////////////////////////////////////////////
 	//////////////////STATIC PROPERTIES///////////////////////////////////////
 	//////////////////////////////////////////////////////////////////////////
-	public readonly int MATCH = 3;
+	public static readonly int MATCH = 3;
+	public static readonly float POWERUP_CHANCE = 0.025f;
 
 	//////////////////////////////////////////////////////////////////////////
 	//////////////////PUBLIC PROPERTIES///////////////////////////////////////
@@ -258,6 +268,38 @@ public class GameManager : MonoBehaviour
 			if (horizontalIndexes.Count >= MATCH)
 				_out.AddRange(horizontalIndexes);
 
+			//Ensure that we don't use multiple of the same element
+			_out = _out.Distinct().ToList();
+
+			//List of indexes affected by Powerups
+			List<int> extraOut = new List<int>();
+
+			for (int i = 0; i < _out.Count; i++)
+			{
+				switch (tiles[_out[i]].powerUp)
+				{
+					case POWERUP.NONE:
+						continue;
+
+					case POWERUP.LINE:
+						extraOut.AddRange(GetWholeRow(_out[i]));
+						break;
+
+					case POWERUP.CROSS:
+						extraOut.AddRange(GetWholeRow(_out[i]));
+						extraOut.AddRange(GetWholeColumn(_out[i]));
+						break;
+					case POWERUP.COLOR:
+						extraOut.AddRange(GetAllSimilarColor(_out[i]));
+						break;
+
+					default:
+						throw new System.NotImplementedException();
+				}
+			}
+
+			_out.AddRange(extraOut);
+
 			return _out;
 		}
 
@@ -392,6 +434,59 @@ public class GameManager : MonoBehaviour
 	private int IndexToColumn(int index)
 	{
 		return (int)IndexToCoordinate(index).x;
+	}
+
+	/// <summary>
+	/// Returns the row number based on index
+	/// </summary>
+	/// <param name="index"></param>
+	/// <returns></returns>
+	private int IndexToRow(int index)
+	{
+		return (int)IndexToCoordinate(index).y;
+	}
+
+	private List<int> GetWholeRow(int currentIndex)
+	{
+		List<int> _out = new List<int>();
+		int rowStartIndex = IndexToRow(currentIndex) * xTiles;
+
+		for(int i = 0; i < xTiles; i++)
+		{
+			_out.Add(rowStartIndex + i);
+		}
+
+		return _out;
+	}
+
+	private List<int> GetWholeColumn(int currentIndex)
+	{
+		List<int> _out = new List<int>();
+		int rowStartIndex = IndexToColumn(currentIndex);
+
+		for (int i = 0; i < yTiles; i++)
+		{
+			_out.Add(rowStartIndex + (i * xTiles));
+		}
+
+		return _out;
+	}
+
+	private List<int> GetAllSimilarColor(int currentIndex)
+	{
+		List<int> _out = new List<int>();
+		Tile tile = tiles[currentIndex];
+
+		for (int i = 0; i < tiles.Length; i++)
+		{
+			if (tiles[i].index == currentIndex)
+				continue;
+
+			if (tile == tiles[i])
+				_out.Add(i);
+		}
+
+		return _out;
 	}
 
 	/// <summary>
@@ -788,37 +883,82 @@ public class GameManager : MonoBehaviour
 			get { return transform.gameObject.name; }
 			set { transform.gameObject.name = value; }
 		}
+
+		public POWERUP powerUp { get; private set; }
 		public int color { get; private set; }
 		public int index { get; private set; }
 		public Transform transform { get; private set; }
 
 		private SpriteRenderer mRenderer;
+		private TextMeshPro textMesh;
 
 		public Tile(int Color, int Index, Transform Transform)
 		{
 			transform = Transform;
 			mRenderer = transform.GetComponent<SpriteRenderer>();
+			textMesh = transform.GetComponentInChildren<TextMeshPro>();
 
-			index = Index;
-			color = Color;
-			//TODO Need to get Color
-			mRenderer.color = GameManager.Instance.colors[color];
+			textMesh.text = string.Empty;
+
+			SetIndex(Index);
+			SetColor(Color);
 
 		}
 
-		public void SetColor(Color _color)
-		{
-			mRenderer.color = _color;
-		}
 		public void SetColor(int _color)
 		{
 			color = _color;
 			mRenderer.color = GameManager.Instance.colors[color];
+
+			//TODO Need to calculate the chance being a power-up
+			if (Random.value <= GameManager.POWERUP_CHANCE)
+				GeneratePowerUp();
+			else
+				powerUp = POWERUP.NONE;
+
+			textMesh.text = PowerUpToString(powerUp);
 		}
 
 		public void SetIndex(int index)
 		{
 			this.index = index;
+		}
+
+		//FIXME Should this be outside of this function?
+		private void GeneratePowerUp()
+		{
+			float value = Random.value;
+
+			if(value >= 0.66f)
+			{
+				powerUp = POWERUP.CROSS;
+			}
+			else if(value < 0.66f && value >= 0.33f)
+			{
+				powerUp = POWERUP.LINE;
+			}
+			else if (value < 0.33f)
+			{
+				powerUp = POWERUP.COLOR;
+			}
+
+		}
+
+		private static string PowerUpToString(POWERUP power)
+		{
+			switch (power)
+			{
+				case POWERUP.NONE:
+					return string.Empty;
+				case POWERUP.LINE:
+					return "-";
+				case POWERUP.CROSS:
+					return "+";
+				case POWERUP.COLOR:
+					return "#";
+				default:
+					throw new System.NotImplementedException(power + " not yet added");
+			}
 		}
 
 
