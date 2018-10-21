@@ -13,13 +13,19 @@ public class GameManager : MonoBehaviour
 		RIGHT
 	}
 
+	//////////////////////////////////////////////////////////////////////////
+	//////////////////STATIC PROPERTIES///////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////
 	public readonly int MATCH = 3;
 
+	//////////////////////////////////////////////////////////////////////////
+	//////////////////PUBLIC PROPERTIES///////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////
+
+	//Input properties
 	public KeyCode mouseButton = KeyCode.Mouse0;
 
-	//////////////////////////////////////////////////////////////////////////
-	//Public variables
-	//////////////////////////////////////////////////////////////////////////
+	//Board Properties
 	[Header("Board"), SerializeField]
 	int xTiles;
 	[SerializeField]
@@ -30,9 +36,7 @@ public class GameManager : MonoBehaviour
 	[SerializeField]
 	Vector2 startLocation = Vector2.zero;
 
-	//////////////////////////////////////////////////////////////////////////
 	//Tile Properties
-	//////////////////////////////////////////////////////////////////////////
 	[Header("Tiles"), SerializeField]
 	GameObject tilePrefab;
 	[SerializeField]
@@ -40,22 +44,21 @@ public class GameManager : MonoBehaviour
 	[SerializeField]
 	Vector2 tileSpacing;
 
-	//////////////////////////////////////////////////////////////////////////
 	//Color Properties
-	//////////////////////////////////////////////////////////////////////////
 	[Header("Colors")]
 	public Color[] colors;
 
 	//////////////////////////////////////////////////////////////////////////
-	//Private variables
+	////////////////////PRIVATE PROPERTIES////////////////////////////////////
 	//////////////////////////////////////////////////////////////////////////
 	private bool coroutineActive = false;
 
+	//Tiles Properties
 	protected Tile[] tiles;
 	protected TileLocation[] tileLocations;
-
 	private int selectedTile;
 
+	//Mouse Properties
 	private bool mouseDown;
 	private Vector2 mouseDownPostion;
 	private Vector2 mouseUpPosition;
@@ -106,28 +109,6 @@ public class GameManager : MonoBehaviour
 		else if (Input.GetKeyDown(mouseButton))
 		{
 			MouseDown();
-		}
-
-		if(Input.GetKeyDown(KeyCode.Mouse1))
-		{
-			int temp;
-			if (TryFindClosest(tiles, tileSize / 2f, Input.mousePosition, out temp))
-			{
-				CheckForMatches(temp);
-				////Destroy(tiles[temp].transform.gameObject);
-				////tiles[temp] = null;
-				//StartCoroutine(CollapseColumnCoroutine(temp));
-				//
-				//
-				//Tile moving = tiles[temp];
-				//int newIndex = GetTopofColumnIndex(temp);
-				//SetNewIndex(moving, newIndex);
-				//moving.transform.position = tileLocations[newIndex].location;
-				//moving.SetColor(UnityEngine.Random.Range(0, colors.Length));
-				//
-				////TODO Need to Move tile to the top (New Color, New Index)
-
-			}
 		}
 	}
 
@@ -258,16 +239,19 @@ public class GameManager : MonoBehaviour
 
 			return _out;
 		}
-		//else
-		//{
-		//	Debug.LogFormat("<color=red>At [{0}] DOESNT HAVE MATCH; Vertical Matches: {2}; Horizontal Matches: {3}</color>",
-		//		checkIndex, null, verticalIndexes.Count, horizontalIndexes.Count);
-		//}
 
 		return null;
 
 	}
 
+	/// <summary>
+	/// Algorithm to search in direction for number of matches
+	/// </summary>
+	/// <param name="compareTo"></param>
+	/// <param name="tileIndex"></param>
+	/// <param name="direction"></param>
+	/// <param name="indexes"></param>
+	/// <returns></returns>
 	private bool CheckMatch(Tile compareTo, int tileIndex, DIRECTION direction, ref List<int> indexes)
 	{
 		if(tiles[tileIndex] == compareTo)
@@ -281,7 +265,10 @@ public class GameManager : MonoBehaviour
 	}
 
 	
-
+	/// <summary>
+	/// Checks all tiles which have cascaded to search for new matches
+	/// </summary>
+	/// <param name="tiles"></param>
 	private void CheckFallingMatch(List<MoveRequest> tiles)
 	{
 		List<int> indexes = new List<int>();
@@ -305,6 +292,11 @@ public class GameManager : MonoBehaviour
 
 	#region Coordinate Functions
 
+	/// <summary>
+	/// Updates the index of specified tile
+	/// </summary>
+	/// <param name="tile"></param>
+	/// <param name="newIndex"></param>
 	private void SetNewIndex(Tile tile, int newIndex)
 	{
 		tiles[newIndex] = tile;
@@ -314,6 +306,11 @@ public class GameManager : MonoBehaviour
 		tile.name = string.Format("Tile [{0}, {1}]", coordinate.x, coordinate.y);
 	}
 
+	/// <summary>
+	/// Returns the top index of column currentIndex is located
+	/// </summary>
+	/// <param name="currentIndex"></param>
+	/// <returns></returns>
 	private int GetTopofColumnIndex(int currentIndex)
 	{
 		int temp = currentIndex;
@@ -327,6 +324,12 @@ public class GameManager : MonoBehaviour
 		}
 	}
 
+	/// <summary>
+	/// Attemps to see if the move in specified direction is possible
+	/// </summary>
+	/// <param name="direction"></param>
+	/// <param name="currentIndex"></param>
+	/// <returns></returns>
 	bool CheckLegalDirection(DIRECTION direction, int currentIndex)
 	{
 		switch (direction)
@@ -360,11 +363,21 @@ public class GameManager : MonoBehaviour
 		return new Vector2(x, y);
 	}
 
+	/// <summary>
+	/// Returns the column number based on index
+	/// </summary>
+	/// <param name="index"></param>
+	/// <returns></returns>
 	private int IndexToColumn(int index)
 	{
 		return (int)IndexToCoordinate(index).x;
 	}
 
+	/// <summary>
+	/// Returns list of tiles above specific index
+	/// </summary>
+	/// <param name="index"></param>
+	/// <returns></returns>
 	private List<int> TilesAboveIndex(int index)
 	{
 		List<int> tilesAbove = new List<int>();
@@ -379,6 +392,12 @@ public class GameManager : MonoBehaviour
 		}
 	}
 
+	/// <summary>
+	/// Offsets a location based on the column. Multiplies offset by global spacing values Up
+	/// </summary>
+	/// <param name="column"></param>
+	/// <param name="offset"></param>
+	/// <returns></returns>
 	private Vector2 OffsetAboveColumn(int column, int offset)
 	{
 		//Debug.LogFormat("Index[{0}], Column: {1}, Max Tiles: {2}, Offset: {3}",(column + (xTiles * (yTiles - 1))), column, tiles.Length, (xTiles * (yTiles - 1)));
@@ -387,6 +406,11 @@ public class GameManager : MonoBehaviour
 		return topCoordinate + new Vector2(0, tileSpacing.y * offset);
 	}
 
+	/// <summary>
+	/// Converts a direction to an index offset
+	/// </summary>
+	/// <param name="direction"></param>
+	/// <returns></returns>
 	private int DirectionToInt(DIRECTION direction)
 	{
 		switch (direction)
@@ -408,6 +432,12 @@ public class GameManager : MonoBehaviour
 
 	#region Coroutines
 
+	/// <summary>
+	/// Swaps the tile positions, and will then check to see if the two have matches next to eachother
+	/// </summary>
+	/// <param name="tile1"></param>
+	/// <param name="tile2"></param>
+	/// <returns></returns>
 	private IEnumerator SwapTilePositionsCoroutine(Tile tile1, Tile tile2)
 	{
 		coroutineActive = true;
@@ -451,6 +481,12 @@ public class GameManager : MonoBehaviour
 
 	}
 
+	/// <summary>
+	/// Used for swapping tiles back to original positions, used in the event of no matches
+	/// </summary>
+	/// <param name="tile1"></param>
+	/// <param name="tile2"></param>
+	/// <returns></returns>
 	private IEnumerator ForceSwapTilePositionsCoroutine(Tile tile1, Tile tile2)
 	{
 		coroutineActive = true;
@@ -480,7 +516,13 @@ public class GameManager : MonoBehaviour
 
 	}
 
-	private IEnumerator FallCoroutine(List<int> targetIndexes)
+
+	/// <summary>
+	/// Cascades all of the tiles that have been queued to fall
+	/// </summary>
+	/// <param name="matchedIndexes">List of all matched Tiles(Displaced Tiles)</param>
+	/// <returns></returns>
+	private IEnumerator FallCoroutine(List<int> matchedIndexes)
 	{
 		coroutineActive = true;
 		List<int>[] columns = new List<int>[xTiles];
@@ -490,14 +532,14 @@ public class GameManager : MonoBehaviour
 		//////////////////////////////////////////////////////////////////////
 
 		//Find the amount and which tiles of each column need to be moved
-		for (int i = 0; i < targetIndexes.Count; i++)
+		for (int i = 0; i < matchedIndexes.Count; i++)
 		{
-			int column = IndexToColumn(targetIndexes[i]);
+			int column = IndexToColumn(matchedIndexes[i]);
 
 			if (columns[column] == null)
 				columns[column] = new List<int>();
 
-			columns[column].Add(targetIndexes[i]);
+			columns[column].Add(matchedIndexes[i]);
 		}
 
 		//////////////////////////////////////////////////////////////////////
@@ -547,44 +589,41 @@ public class GameManager : MonoBehaviour
 			}
 		}
 
-		//UnityEditor.EditorApplication.isPaused = true;
-		//yield return null;
-
-		float _t = 0;
-		Debug.Log("Moving");
+		float moveT = 0f;
 		List<Vector2> startPositions = new List<Vector2>();
+
+		//Get all of the start positions for smooth lerping
 		for (int i = 0; i < requests.Count; i++)
 		{
 			startPositions.Add(requests[i].tile.transform.position);
 		}
 
-		while (_t < 1f)
+		//Move all tiles that have been requested to be moved
+		while (moveT < 1f)
 		{
 			for(int i = 0; i < requests.Count; i++)
 			{
 				requests[i].tile.transform.position = Vector2.Lerp(
 					startPositions[i],
-					tileLocations[requests[i].targetIndex].location, _t);
+					tileLocations[requests[i].targetIndex].location, moveT);
 			}
 
-			_t += Time.deltaTime;
+			//TODO Need to add a move multiplier here, Maybe also relative to fall distance
+			moveT += Time.deltaTime;
 
 			yield return null;
 		}
 
-		Debug.Log("Setting");
-
-		//Swap tiles
+		//Set new indexes for moved tiles
 		for (int i = 0; i < requests.Count; i++)
 		{
 			requests[i].tile.transform.position = tileLocations[requests[i].targetIndex].location;
 			SetNewIndex(requests[i].tile, newIndex: requests[i].targetIndex);
 		}
 
-		Debug.Log("Done");
 		coroutineActive = false;
 
-		yield return null;
+		//yield return null;
 
 		CheckFallingMatch(requests);
 	}
@@ -593,6 +632,15 @@ public class GameManager : MonoBehaviour
 
 	#region Static Functions
 
+	/// <summary>
+	/// Finds the closest tile based on MousePosition. Searches through all tiles to find match if any. Returns bool to indicate
+	/// if there's a match, and if so, will out the index of matched tile
+	/// </summary>
+	/// <param name="Tiles"></param>
+	/// <param name="thresholdRadius"></param>
+	/// <param name="mousePosition"></param>
+	/// <param name="index"></param>
+	/// <returns></returns>
 	private static bool TryFindClosest(Tile[] Tiles, float thresholdRadius, Vector2 mousePosition, out int index)
 	{
 		Vector2 position = Camera.main.ScreenToWorldPoint(mousePosition);
@@ -621,6 +669,11 @@ public class GameManager : MonoBehaviour
 
 	}
 
+	/// <summary>
+	/// Converts a mouse drag to a direction.
+	/// </summary>
+	/// <param name="dragDirection"></param>
+	/// <returns></returns>
 	private static DIRECTION GetMouseDragDirection(Vector2 dragDirection)
 	{
 		//Debug.Log("Drag Direction: " + dragDirection);
@@ -641,6 +694,11 @@ public class GameManager : MonoBehaviour
 		return outDirection;
 	}
 
+	/// <summary>
+	/// Used to calculate the direction of the mouse drag
+	/// </summary>
+	/// <param name="dragDirection"></param>
+	/// <returns></returns>
 	private static Vector2 CalculateMouseDragDirection(Vector2 dragDirection)
 	{
 		//Vector2 dragDirection = mouseUpPosition - mouseDownPostion;
@@ -660,6 +718,12 @@ public class GameManager : MonoBehaviour
 		return outDirection;
 	}
 
+	/// <summary>
+	/// Finds total amount in list that is less than value
+	/// </summary>
+	/// <param name="value"></param>
+	/// <param name="values"></param>
+	/// <returns></returns>
 	private static int LessThanCount(int value, List<int> values)
 	{
 		int count = 0;
