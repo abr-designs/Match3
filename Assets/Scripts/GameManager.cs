@@ -25,24 +25,29 @@ public class GameManager : MonoBehaviour
 	//Input properties
 	public KeyCode mouseButton = KeyCode.Mouse0;
 
+	[Header("Seed"), SerializeField]
+	private bool useSeed;
+	[SerializeField]
+	private int seed;
+
 	//Board Properties
 	[Header("Board"), SerializeField]
-	int xTiles;
+	private int xTiles;
 	[SerializeField]
-	int yTiles;
+	private int yTiles;
 
 	[SerializeField]
-	SpriteRenderer backgroundSprite;
+	private SpriteRenderer backgroundSprite;
 	[SerializeField]
-	Vector2 startLocation = Vector2.zero;
+	private Vector2 startLocation = Vector2.zero;
 
 	//Tile Properties
 	[Header("Tiles"), SerializeField]
-	GameObject tilePrefab;
+	private GameObject tilePrefab;
 	[SerializeField]
-	float tileSize;
+	private float tileSize;
 	[SerializeField]
-	Vector2 tileSpacing;
+	private Vector2 tileSpacing;
 
 	//Color Properties
 	[Header("Colors")]
@@ -95,6 +100,13 @@ public class GameManager : MonoBehaviour
 	// Use this for initialization
 	private void Start()
 	{
+		if(!useSeed)
+			seed = Random.Range(int.MinValue, int.MaxValue);
+
+		Debug.LogError("Using Random Seed: " + seed);
+
+		Random.InitState(seed);
+
 		transform = gameObject.transform;
 
 		GenerateTiles();
