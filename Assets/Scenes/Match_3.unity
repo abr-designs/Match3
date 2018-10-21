@@ -140,6 +140,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f585e4c7a8ce27f40bb6a90f4985c313, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  mouseButton: 323
+  useSeed: 1
+  seed: -283990525
   xTiles: 6
   yTiles: 9
   backgroundSprite: {fileID: 1793277156}
@@ -147,6 +150,56 @@ MonoBehaviour:
   tilePrefab: {fileID: 1043196121839744, guid: f9910ac64ff83414fb53a515eb61aedb, type: 2}
   tileSize: 0.16
   tileSpacing: {x: 0.22, y: 0.22}
+  swapSpeed: 3
+  swapCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 2
+      outSlope: 2
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  fallSpeed: 1.5
+  fallCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 2
+      outSlope: 2
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   colors:
   - {r: 0.09019608, g: 0.49411768, b: 0.5372549, a: 1}
   - {r: 0.29803923, g: 0.29803923, b: 0.6156863, a: 1}

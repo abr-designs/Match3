@@ -49,6 +49,15 @@ public class GameManager : MonoBehaviour
 	[SerializeField]
 	private Vector2 tileSpacing;
 
+	[Header("Speeds"), SerializeField]
+	private float swapSpeed = 5f;
+	[SerializeField]
+	private AnimationCurve swapCurve = new AnimationCurve();
+	[SerializeField]
+	private float fallSpeed = 10f;
+	[SerializeField]
+	private AnimationCurve fallCurve = new AnimationCurve();
+
 	//Color Properties
 	[Header("Colors")]
 	public Color[] colors;
@@ -464,10 +473,10 @@ public class GameManager : MonoBehaviour
 
 		while(_t < 1f)
 		{
-			tile1.transform.position = Vector2.Lerp(tile1Pos, tile2Pos, _t);
-			tile2.transform.position = Vector2.Lerp(tile2Pos, tile1Pos, _t);
+			tile1.transform.position = Vector2.Lerp(tile1Pos, tile2Pos, swapCurve.Evaluate(_t));
+			tile2.transform.position = Vector2.Lerp(tile2Pos, tile1Pos, swapCurve.Evaluate(_t));
 
-			_t += Time.deltaTime;
+			_t += Time.deltaTime * swapSpeed;
 
 			yield return null;
 		}
@@ -513,10 +522,10 @@ public class GameManager : MonoBehaviour
 
 		while (_t < 1f)
 		{
-			tile1.transform.position = Vector2.Lerp(tile1Pos, tile2Pos, _t);
-			tile2.transform.position = Vector2.Lerp(tile2Pos, tile1Pos, _t);
+			tile1.transform.position = Vector2.Lerp(tile1Pos, tile2Pos, swapCurve.Evaluate(_t));
+			tile2.transform.position = Vector2.Lerp(tile2Pos, tile1Pos, swapCurve.Evaluate(_t));
 
-			_t += Time.deltaTime;
+			_t += Time.deltaTime * swapSpeed;
 
 			yield return null;
 		}
@@ -617,11 +626,11 @@ public class GameManager : MonoBehaviour
 			{
 				requests[i].tile.transform.position = Vector2.Lerp(
 					startPositions[i],
-					tileLocations[requests[i].targetIndex].location, moveT);
+					tileLocations[requests[i].targetIndex].location, fallCurve.Evaluate(moveT));
 			}
 
 			//TODO Need to add a move multiplier here, Maybe also relative to fall distance
-			moveT += Time.deltaTime;
+			moveT += Time.deltaTime * fallSpeed;
 
 			yield return null;
 		}
