@@ -26,7 +26,7 @@ public class GameManager : MonoBehaviour
 	//////////////////STATIC PROPERTIES///////////////////////////////////////
 	//////////////////////////////////////////////////////////////////////////
 	public static readonly int MATCH = 3;
-	public static readonly float POWERUP_CHANCE = 0.025f;
+	//public static readonly float POWERUP_CHANCE = 0.025f;
 
 	//////////////////////////////////////////////////////////////////////////
 	//////////////////PUBLIC PROPERTIES///////////////////////////////////////
@@ -68,9 +68,13 @@ public class GameManager : MonoBehaviour
 	[SerializeField]
 	private AnimationCurve fallCurve = new AnimationCurve();
 
+	[Header("Power Ups"), SerializeField]
+	private ScriptablePowerupProfile powerupProfile;
+
 	//Color Properties
-	[Header("Colors")]
-	public Color[] colors;
+	[Header("Colors"), SerializeField]
+	//public Color[] colors;
+	private ScriptableColorPallet colorProfile;
 
 	//////////////////////////////////////////////////////////////////////////
 	////////////////////PRIVATE PROPERTIES////////////////////////////////////
@@ -125,6 +129,7 @@ public class GameManager : MonoBehaviour
 		Debug.LogError("Using Random Seed: " + seed);
 
 		Random.InitState(seed);
+		powerupProfile.Init();
 
 		transform = gameObject.transform;
 
@@ -165,7 +170,7 @@ public class GameManager : MonoBehaviour
 				tempTransform.position = tileStart + new Vector2(tileSpacing.x * j, tileSpacing.y * i);
 
 				int index = CoordinateToIndex(j, i);
-				tiles[index] = new Tile(UnityEngine.Random.Range(0, colors.Length), index, tempTransform);
+				tiles[index] = new Tile(UnityEngine.Random.Range(0, colorProfile.Length), index, tempTransform);
 				tileLocations[index] = new TileLocation(index, tempTransform.position);
 			}
 		}
@@ -691,7 +696,7 @@ public class GameManager : MonoBehaviour
 			for (int j = 0; j < columns[i].Count; j++)
 			{
 				tiles[columns[i][j]].transform.position = OffsetAboveColumn(column: i, offset: j + 1);
-				tiles[columns[i][j]].SetColor(Random.Range(0, colors.Length));
+				tiles[columns[i][j]].SetColor(Random.Range(0, colorProfile.Length));
 
 				int columnTopIndex = (i + (xTiles * (yTiles - 1)));
 				int verticalOffset = ((columns[i].Count) * xTiles);
@@ -908,11 +913,11 @@ public class GameManager : MonoBehaviour
 		public void SetColor(int _color)
 		{
 			color = _color;
-			mRenderer.color = GameManager.Instance.colors[color];
+			mRenderer.color = GameManager.Instance.colorProfile.Colors[color];
 
 			//TODO Need to calculate the chance being a power-up
-			if (Random.value <= GameManager.POWERUP_CHANCE)
-				GeneratePowerUp();
+			if (Random.value <= GameManager.Instance.powerupProfile.PowerupChance)
+				powerUp = GameManager.Instance.powerupProfile.GeneratePowerUp();
 			else
 				powerUp = POWERUP.NONE;
 
@@ -922,26 +927,6 @@ public class GameManager : MonoBehaviour
 		public void SetIndex(int index)
 		{
 			this.index = index;
-		}
-
-		//FIXME Should this be outside of this function?
-		private void GeneratePowerUp()
-		{
-			float value = Random.value;
-
-			if(value >= 0.66f)
-			{
-				powerUp = POWERUP.CROSS;
-			}
-			else if(value < 0.66f && value >= 0.33f)
-			{
-				powerUp = POWERUP.LINE;
-			}
-			else if (value < 0.33f)
-			{
-				powerUp = POWERUP.COLOR;
-			}
-
 		}
 
 		private static string PowerUpToString(POWERUP power)
