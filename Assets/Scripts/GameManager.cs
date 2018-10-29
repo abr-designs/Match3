@@ -59,6 +59,9 @@ public class GameManager : MonoBehaviour
 	[SerializeField]
 	private Vector2 tileSpacing;
 
+	[Header("Tiles"), SerializeField]
+	ScriptableObstacles obstacles;
+
 	[Header("Speeds"), SerializeField]
 	private float swapSpeed = 5f;
 	[SerializeField]
@@ -80,6 +83,8 @@ public class GameManager : MonoBehaviour
 	////////////////////PRIVATE PROPERTIES////////////////////////////////////
 	//////////////////////////////////////////////////////////////////////////
 	private bool coroutineActive = false;
+
+	protected List<int> obstacleIndexes;
 
 	//Tiles Properties
 	protected Tile[] tiles;
@@ -152,6 +157,8 @@ public class GameManager : MonoBehaviour
 
 	private void GenerateTiles()
 	{
+		GetObstacles();
+
 		tiles = new Tile[xTiles * yTiles];
 		tileLocations = new TileLocation[xTiles * yTiles];
 
@@ -170,10 +177,31 @@ public class GameManager : MonoBehaviour
 				tempTransform.position = tileStart + new Vector2(tileSpacing.x * j, tileSpacing.y * i);
 
 				int index = CoordinateToIndex(j, i);
-				tiles[index] = new Tile(UnityEngine.Random.Range(0, colorProfile.Length), index, tempTransform);
+
+				//Determine if the tile must be an Obstacle or a moveable Tile
+				if(obstacleIndexes.Contains(index))
+					tiles[index] = new Tile(index, tempTransform, obstacles.ObstacleSprite);
+				else
+					tiles[index] = new Tile(UnityEngine.Random.Range(0, colorProfile.Length), index, tempTransform);
+
+
 				tileLocations[index] = new TileLocation(index, tempTransform.position);
 			}
 		}
+	}
+
+	private void GetObstacles()
+	{
+		obstacleIndexes = new List<int>();
+
+		if (obstacles == null)
+			return;
+
+		for(int i = 0; i < obstacles.coordinates.Count; i++)
+		{
+			obstacleIndexes.Add(CoordinateToIndex(obstacles.coordinates[i]));
+		}
+
 	}
 
 	#region Mouse Functions
@@ -418,6 +446,10 @@ public class GameManager : MonoBehaviour
 		return false;
 	}
 
+	private int CoordinateToIndex(Vector2 coordinate)
+	{
+		return CoordinateToIndex((int)coordinate.x, (int)coordinate.y);
+	}
 	private int CoordinateToIndex(int x, int y)
 	{
 		return x + (y * xTiles);
@@ -889,6 +921,8 @@ public class GameManager : MonoBehaviour
 			set { transform.gameObject.name = value; }
 		}
 
+		public bool isObstacle { get; private set; }
+
 		public POWERUP powerUp { get; private set; }
 		public int color { get; private set; }
 		public int index { get; private set; }
@@ -907,6 +941,19 @@ public class GameManager : MonoBehaviour
 
 			SetIndex(Index);
 			SetColor(Color);
+
+		}
+
+		public Tile(int index,Transform transform, Sprite sprite)
+		{
+			isObstacle = true;
+			transform = transform;
+			mRenderer = transform.GetComponent<SpriteRenderer>();
+			textMesh = transform.GetComponentInChildren<TextMeshPro>();
+
+			mRenderer.sprite = sprite;
+			mRenderer.color = Color.gray;
+			textMesh.text = string.Empty;
 
 		}
 
