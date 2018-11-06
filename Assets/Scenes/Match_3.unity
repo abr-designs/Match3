@@ -150,6 +150,7 @@ MonoBehaviour:
   tilePrefab: {fileID: 1043196121839744, guid: f9910ac64ff83414fb53a515eb61aedb, type: 2}
   tileSize: 0.16
   tileSpacing: {x: 0.22, y: 0.22}
+  obstacles: {fileID: 11400000, guid: a1952238cddc911409e647e0620a31de, type: 2}
   swapSpeed: 3
   swapCurve:
     serializedVersion: 2

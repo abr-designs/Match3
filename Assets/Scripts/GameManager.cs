@@ -263,6 +263,9 @@ public class GameManager : MonoBehaviour
 		else
 			return false;
 
+		if (tiles[target].isObstacle)
+			return false;
+
 		swapTile = tiles[target];
 		return true;
 	}
@@ -322,6 +325,7 @@ public class GameManager : MonoBehaviour
 						extraOut.AddRange(GetWholeRow(_out[i]));
 						extraOut.AddRange(GetWholeColumn(_out[i]));
 						break;
+
 					case POWERUP.COLOR:
 						extraOut.AddRange(GetAllSimilarColor(_out[i]));
 						break;
@@ -350,6 +354,9 @@ public class GameManager : MonoBehaviour
 	/// <returns></returns>
 	private bool CheckMatch(Tile compareTo, int tileIndex, DIRECTION direction, ref List<int> indexes)
 	{
+		if (tiles[tileIndex].isObstacle)
+			return false;
+
 		if(tiles[tileIndex] == compareTo)
 		{
 			indexes.Add(tileIndex);
@@ -490,6 +497,9 @@ public class GameManager : MonoBehaviour
 
 		for(int i = 0; i < xTiles; i++)
 		{
+			if (isObstacle(rowStartIndex + i))
+				continue;
+
 			_out.Add(rowStartIndex + i);
 		}
 
@@ -503,6 +513,9 @@ public class GameManager : MonoBehaviour
 
 		for (int i = 0; i < yTiles; i++)
 		{
+			//if (isObstacle(rowStartIndex + (i * xTiles)))
+			//	continue;
+
 			_out.Add(rowStartIndex + (i * xTiles));
 		}
 
@@ -710,34 +723,63 @@ public class GameManager : MonoBehaviour
 			//Find number of tiles above it after max of tiles
 			List<int> above = TilesAboveIndex(minLimboIndex);
 
+			int obstacles = 0;
+			bool obstacleOffset = RequiresObstacleOffset(minLimboIndex, out obstacles);
+
 			
 			//Request move tiles to new index location (offset of columns[column].Count * xTiles)
 			for(int j = 0; j < above.Count; j++)
 			{
+				if (isObstacle(above[j]))
+					continue;
+
 				int aboveIndex = tiles[above[j]].index;
+				int targetIndex = aboveIndex - (LessThanCount(aboveIndex, columns[i]) * xTiles);
+
+				if(obstacleOffset)
+				{
+					Debug.Log("Obstacles in Column: " + ObstaclesInColumn(GetWholeColumn(targetIndex)));
+
+					targetIndex -= obstacles * xTiles;
+				}
+
+				while(isObstacle(targetIndex))
+				{
+					targetIndex -= xTiles;
+				}
+
 				requests.Add(new MoveRequest()
 				{
 					//FIXME The amount of tiles moving needs to be the amount below, not just count
 					tile = tiles[above[j]],
 					//targetIndex = tiles[above[j]].index - (columns[i].Count * xTiles)
-					targetIndex = aboveIndex - (LessThanCount(aboveIndex, columns[i]) * xTiles)
+					targetIndex = targetIndex
 				});
 			}
 
 			//Request move limbo tiles to now vacant positions
 			for (int j = 0; j < columns[i].Count; j++)
 			{
+				if (isObstacle(columns[i][j]))
+					continue;
+
 				tiles[columns[i][j]].transform.position = OffsetAboveColumn(column: i, offset: j + 1);
 				tiles[columns[i][j]].SetColor(Random.Range(0, colorProfile.Length));
 
 				int columnTopIndex = (i + (xTiles * (yTiles - 1)));
-				int verticalOffset = ((columns[i].Count) * xTiles);
+				int verticalOffset = ((columns[i].Count) * xTiles) + ObstaclesInColumn(columns[i]);
 				verticalOffset -= xTiles * (j + 1);
+
+				int targetIndex = columnTopIndex - verticalOffset;
+				while (isObstacle(targetIndex))
+				{
+					targetIndex -= xTiles;
+				}
 
 				requests.Add(new MoveRequest()
 				{
 					tile = tiles[columns[i][j]],
-					targetIndex = columnTopIndex - verticalOffset
+					targetIndex = targetIndex
 				});
 			}
 		}
@@ -782,6 +824,81 @@ public class GameManager : MonoBehaviour
 	}
 
 	#endregion //Coroutines
+
+	#region Obstacles
+
+
+	bool isObstacle(int index)
+	{
+		try
+		{
+			return tiles[index].isObstacle;
+		}
+		catch(System.Exception e)
+		{
+			Debug.LogError("Error at Index: " + index);
+			throw e;
+		}
+	}
+
+	/// <summary>
+	/// Finds total amount in list that is less than value
+	/// </summary>
+	/// <param name="value"></param>
+	/// <param name="values"></param>
+	/// <returns></returns>
+	private int ObstaclesInColumn(List<int> values)
+	{
+		int count = 0;
+		for (int i = 0; i < values.Count; i++)
+		{
+			if (tiles[values[i]].isObstacle)
+				count++;
+		}
+
+		return count;
+	}
+
+	/// <summary>
+	/// Determines if the column the current index is in will require using Obstacle offsets to account of spaces
+	/// that the obstcales occupy.
+	/// </summary>
+	/// <param name="currentIndex"></param>
+	/// <param name="count"></param>
+	/// <returns></returns>
+	private bool RequiresObstacleOffset(int currentIndex, out int count)
+	{
+		var column = GetWholeColumn(currentIndex);
+		count = ObstaclesInColumn(column);
+
+		if (count == 0)
+			return false;
+
+		Debug.LogFormat("Current Index[{0}] Smallest Obstacle[{1}]", currentIndex, SmallestObstacleIndex(column));
+
+		return currentIndex < SmallestObstacleIndex(column);
+
+	}
+
+	/// <summary>
+	/// Returns the min index of the obstacle in the column
+	/// </summary>
+	/// <param name="column"></param>
+	/// <returns></returns>
+	private int SmallestObstacleIndex(List<int> column)
+	{
+		int smallest = column.Max();
+		for (int i = 0; i < column.Count; i++)
+		{
+			if (isObstacle(column[i]) && column[i] < smallest)
+				smallest = column[i];
+		}
+
+		return smallest;
+	}
+
+
+	#endregion //Obstacles
 
 	#region Static Functions
 
@@ -891,6 +1008,8 @@ public class GameManager : MonoBehaviour
 
 	
 
+
+
 	#endregion //Static Functions
 
 	#region Extra Classes
@@ -944,10 +1063,10 @@ public class GameManager : MonoBehaviour
 
 		}
 
-		public Tile(int index,Transform transform, Sprite sprite)
+		public Tile(int index,Transform Transform, Sprite sprite)
 		{
 			isObstacle = true;
-			transform = transform;
+			transform = Transform;
 			mRenderer = transform.GetComponent<SpriteRenderer>();
 			textMesh = transform.GetComponentInChildren<TextMeshPro>();
 
