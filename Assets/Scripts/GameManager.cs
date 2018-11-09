@@ -708,6 +708,10 @@ public class GameManager : MonoBehaviour
 			columns[column].Add(matchedIndexes[i]);
 		}
 
+		for (int i = 0; i < columns.Length; i++)
+			columns[i].OrderByDescending(x => x);
+
+
 		//////////////////////////////////////////////////////////////////////
 		//////////////////////////////////////////////////////////////////////\
 
@@ -723,8 +727,10 @@ public class GameManager : MonoBehaviour
 			//Find number of tiles above it after max of tiles
 			List<int> above = TilesAboveIndex(minLimboIndex);
 
+			List<int> occupied = new List<int>();
+
 			int obstacles = 0;
-			bool obstacleOffset = RequiresObstacleOffset(minLimboIndex, out obstacles);
+			//bool obstacleOffset = RequiresObstacleOffset(minLimboIndex, out obstacles);
 
 			
 			//Request move tiles to new index location (offset of columns[column].Count * xTiles)
@@ -736,18 +742,6 @@ public class GameManager : MonoBehaviour
 				int aboveIndex = tiles[above[j]].index;
 				int targetIndex = aboveIndex - (LessThanCount(aboveIndex, columns[i]) * xTiles);
 
-				if(obstacleOffset)
-				{
-					Debug.Log("Obstacles in Column: " + ObstaclesInColumn(GetWholeColumn(targetIndex)));
-
-					targetIndex -= obstacles * xTiles;
-				}
-
-				while(isObstacle(targetIndex))
-				{
-					targetIndex -= xTiles;
-				}
-
 				requests.Add(new MoveRequest()
 				{
 					//FIXME The amount of tiles moving needs to be the amount below, not just count
@@ -756,6 +750,8 @@ public class GameManager : MonoBehaviour
 					targetIndex = targetIndex
 				});
 			}
+
+			occupied = new List<int>();
 
 			//Request move limbo tiles to now vacant positions
 			for (int j = 0; j < columns[i].Count; j++)
@@ -767,14 +763,10 @@ public class GameManager : MonoBehaviour
 				tiles[columns[i][j]].SetColor(Random.Range(0, colorProfile.Length));
 
 				int columnTopIndex = (i + (xTiles * (yTiles - 1)));
-				int verticalOffset = ((columns[i].Count) * xTiles) + ObstaclesInColumn(columns[i]);
+				int verticalOffset = ((columns[i].Count) * xTiles);
 				verticalOffset -= xTiles * (j + 1);
 
 				int targetIndex = columnTopIndex - verticalOffset;
-				while (isObstacle(targetIndex))
-				{
-					targetIndex -= xTiles;
-				}
 
 				requests.Add(new MoveRequest()
 				{
@@ -859,43 +851,43 @@ public class GameManager : MonoBehaviour
 		return count;
 	}
 
-	/// <summary>
-	/// Determines if the column the current index is in will require using Obstacle offsets to account of spaces
-	/// that the obstcales occupy.
-	/// </summary>
-	/// <param name="currentIndex"></param>
-	/// <param name="count"></param>
-	/// <returns></returns>
-	private bool RequiresObstacleOffset(int currentIndex, out int count)
-	{
-		var column = GetWholeColumn(currentIndex);
-		count = ObstaclesInColumn(column);
-
-		if (count == 0)
-			return false;
-
-		Debug.LogFormat("Current Index[{0}] Smallest Obstacle[{1}]", currentIndex, SmallestObstacleIndex(column));
-
-		return currentIndex < SmallestObstacleIndex(column);
-
-	}
-
-	/// <summary>
-	/// Returns the min index of the obstacle in the column
-	/// </summary>
-	/// <param name="column"></param>
-	/// <returns></returns>
-	private int SmallestObstacleIndex(List<int> column)
-	{
-		int smallest = column.Max();
-		for (int i = 0; i < column.Count; i++)
-		{
-			if (isObstacle(column[i]) && column[i] < smallest)
-				smallest = column[i];
-		}
-
-		return smallest;
-	}
+	///// <summary>
+	///// Determines if the column the current index is in will require using Obstacle offsets to account of spaces
+	///// that the obstcales occupy.
+	///// </summary>
+	///// <param name="currentIndex"></param>
+	///// <param name="count"></param>
+	///// <returns></returns>
+	//private bool RequiresObstacleOffset(int currentIndex, out int count)
+	//{
+	//	var column = GetWholeColumn(currentIndex);
+	//	count = ObstaclesInColumn(column);
+	//
+	//	if (count == 0)
+	//		return false;
+	//
+	//	Debug.LogFormat("Current Index[{0}] Smallest Obstacle[{1}]", currentIndex, SmallestObstacleIndex(column));
+	//
+	//	return currentIndex < SmallestObstacleIndex(column);
+	//
+	//}
+	//
+	///// <summary>
+	///// Returns the min index of the obstacle in the column
+	///// </summary>
+	///// <param name="column"></param>
+	///// <returns></returns>
+	//private int SmallestObstacleIndex(List<int> column)
+	//{
+	//	int smallest = column.Max();
+	//	for (int i = 0; i < column.Count; i++)
+	//	{
+	//		if (isObstacle(column[i]) && column[i] < smallest)
+	//			smallest = column[i];
+	//	}
+	//
+	//	return smallest;
+	//}
 
 
 	#endregion //Obstacles
