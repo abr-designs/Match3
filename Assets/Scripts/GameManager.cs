@@ -544,7 +544,7 @@ public class GameManager : MonoBehaviour
 	/// </summary>
 	/// <param name="index"></param>
 	/// <returns></returns>
-	private List<int> TilesAboveIndex(int index)
+	private List<int> GetTileIndicesAbove(int index)
 	{
 		List<int> tilesAbove = new List<int>();
 		while (true)
@@ -555,6 +555,21 @@ public class GameManager : MonoBehaviour
 				return tilesAbove;
 
 			tilesAbove.Add(index);
+		}
+	}
+
+	private List<int> GetTileIndicesAbove(int index, List<int> excluding)
+	{
+		List<int> tilesAbove = new List<int>();
+		while (true)
+		{
+			index += DirectionToInt(DIRECTION.UP);
+
+			if (index >= tiles.Length)
+				return tilesAbove;
+
+			if(!excluding.Contains(index))
+				tilesAbove.Add(index);
 		}
 	}
 
@@ -708,12 +723,15 @@ public class GameManager : MonoBehaviour
 			columns[column].Add(matchedIndexes[i]);
 		}
 
-		for (int i = 0; i < columns.Length; i++)
-			columns[i].OrderByDescending(x => x);
+		//for (int i = 0; i < columns.Length; i++)
+		//	columns[i].OrderByDescending(x => x);
 
 
 		//////////////////////////////////////////////////////////////////////
 		//////////////////////////////////////////////////////////////////////\
+
+		//UnityEditor.EditorApplication.isPaused = true;
+		//yield return null;
 
 		for (int i = 0; i < columns.Length; i++)
 		{
@@ -725,27 +743,41 @@ public class GameManager : MonoBehaviour
 			//int maxLimboIndex = columns[i].Max();
 
 			//Find number of tiles above it after max of tiles
-			List<int> above = TilesAboveIndex(minLimboIndex);
+			List<int> tilesAboveIndex = GetTileIndicesAbove(minLimboIndex, columns[i]);
 
 			List<int> occupied = new List<int>();
 
-			int obstacles = 0;
+			//int obstacleCountAboveIndex = ;
 			//bool obstacleOffset = RequiresObstacleOffset(minLimboIndex, out obstacles);
 
 			
 			//Request move tiles to new index location (offset of columns[column].Count * xTiles)
-			for(int j = 0; j < above.Count; j++)
+			for(int j = 0; j < tilesAboveIndex.Count; j++)
 			{
-				if (isObstacle(above[j]))
+				if (isObstacle(tilesAboveIndex[j]))
 					continue;
+				
+				int aboveIndex = tiles[tilesAboveIndex[j]].index;
+				int obstacleCountAboveIndex = GetObstacleCountAbove(minLimboIndex, aboveIndex);
+				int totalBelow = TotalBelowInColumn(aboveIndex, columns[i]) + obstacleCountAboveIndex;
+				int targetIndex = aboveIndex - (totalBelow * xTiles);
 
-				int aboveIndex = tiles[above[j]].index;
-				int targetIndex = aboveIndex - (LessThanCount(aboveIndex, columns[i]) * xTiles);
+				while (isObstacle(targetIndex))
+					targetIndex += xTiles;
+
+				while (ContainsTarget(requests, targetIndex))
+					targetIndex += xTiles;
+
+				while (isObstacle(targetIndex))
+					targetIndex += xTiles;
+
+				//Debug.LogFormat("Tile Above Index [{0}], total below {1}, target index [{2}], obstacle COunt: {3}", aboveIndex, totalBelow, targetIndex, obstacleCountAboveIndex);
+
 
 				requests.Add(new MoveRequest()
 				{
 					//FIXME The amount of tiles moving needs to be the amount below, not just count
-					tile = tiles[above[j]],
+					tile = tiles[tilesAboveIndex[j]],
 					//targetIndex = tiles[above[j]].index - (columns[i].Count * xTiles)
 					targetIndex = targetIndex
 				});
@@ -767,6 +799,9 @@ public class GameManager : MonoBehaviour
 				verticalOffset -= xTiles * (j + 1);
 
 				int targetIndex = columnTopIndex - verticalOffset;
+
+				while (isObstacle(targetIndex))
+					targetIndex += xTiles;
 
 				requests.Add(new MoveRequest()
 				{
@@ -849,6 +884,28 @@ public class GameManager : MonoBehaviour
 		}
 
 		return count;
+	}
+
+	/// <summary>
+	/// Returns count of obstacles above index
+	/// </summary>
+	/// <param name="index"></param>
+	/// <returns></returns>
+	private int GetObstacleCountAbove(int minIndex, int maxIndex)
+	{
+		int count = 0;
+		int index = minIndex;
+		//List<int> tilesAbove = new List<int>();
+		while (true)
+		{
+			index += DirectionToInt(DIRECTION.UP);
+
+			if (index >= maxIndex || index >= tiles.Length)
+				return count;
+
+			if(isObstacle(index))
+				count++;
+		}
 	}
 
 	///// <summary>
@@ -986,7 +1043,7 @@ public class GameManager : MonoBehaviour
 	/// <param name="value"></param>
 	/// <param name="values"></param>
 	/// <returns></returns>
-	private static int LessThanCount(int value, List<int> values)
+	private static int TotalBelowInColumn(int value, List<int> values)
 	{
 		int count = 0;
 		for (int i = 0; i < values.Count; i++)
@@ -996,6 +1053,17 @@ public class GameManager : MonoBehaviour
 		}
 
 		return count;
+	}
+
+	private static bool ContainsTarget(List<MoveRequest> requests, int targetIndex)
+	{
+		for(int i = 0; i < requests.Count; i++)
+		{
+			if (requests[i].targetIndex == targetIndex)
+				return true;
+		}
+
+		return false;
 	}
 
 	
